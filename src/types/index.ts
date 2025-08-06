@@ -21,16 +21,16 @@ export interface SREFImage {
 export interface MidJourneyResult {
   srefCode: string;
   images: string[];
-  prompt?: string;
-  messageId?: string;
+  prompt?: string | undefined;
+  messageId?: string | undefined;
 }
 
 export interface AuthState {
   isAuthenticated: boolean;
   user?: {
     id: string;
-    email?: string;
-  };
+    email?: string | undefined;
+  } | undefined;
   session?: any;
 }
 

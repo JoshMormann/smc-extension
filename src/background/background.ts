@@ -43,10 +43,11 @@ chrome.runtime.onMessage.addListener((
 
     case 'SREF_DETECTED':
       handleSREFDetected(message.data, sender);
-      break;
+      return false; // No async response needed
 
     default:
       console.warn('Unknown message type:', message.type);
+      return false;
   }
 });
 

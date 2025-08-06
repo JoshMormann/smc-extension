@@ -126,10 +126,11 @@ class SREFMiner {
     }
 
     // Create detected SREF object
+    const prompt = this.extractPrompt(messageElement);
     const detectedSREF: DetectedSREF = {
       srefCode: `--sref ${srefCode}`,
       images,
-      prompt: this.extractPrompt(messageElement),
+      prompt,
       messageId,
       element: messageElement,
       timestamp: Date.now(),
@@ -167,7 +168,7 @@ class SREFMiner {
     // Try to extract the prompt text from the message
     const textElements = messageElement.querySelectorAll('[class*="markup"], [class*="content"]');
     
-    for (const element of textElements) {
+    for (const element of Array.from(textElements)) {
       const text = element.textContent?.trim();
       if (text && text.length > 10 && !text.startsWith('--sref')) {
         return text;

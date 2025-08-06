@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { SREFCode, AuthState } from '../types';
 
-// These will need to be configured with your actual Supabase credentials
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://your-project.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'your-anon-key';
+// Supabase configuration for SREF Manager extension
+const SUPABASE_URL = 'https://qqbbssxxddcsuboiceey.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxYmJzc3h4ZGRjc3Vib2ljZWV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMzA4MDcsImV4cCI6MjA2NjcwNjgwN30.3NHXaXN_24TNoaXwaloPBu5nomHzeiC5m9DmGTuO1d8';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -24,7 +24,7 @@ export class AuthService {
         isAuthenticated: !!session,
         user: session?.user ? {
           id: session.user.id,
-          email: session.user.email,
+          email: session.user.email || undefined,
         } : undefined,
         session,
       };

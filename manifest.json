@@ -7,7 +7,8 @@
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "notifications"
   ],
   
   "host_permissions": [
@@ -16,14 +17,14 @@
   ],
   
   "background": {
-    "service_worker": "dist/background.js"
+    "service_worker": "background.js"
   },
   
   "content_scripts": [
     {
       "matches": ["https://discord.com/*", "https://*.discord.com/*"],
-      "js": ["dist/content.js"],
-      "css": ["dist/content.css"],
+      "js": ["content.js"],
+      "css": ["content.css"],
       "run_at": "document_end"
     }
   ],
@@ -48,7 +49,7 @@
   
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "dist/*"],
+      "resources": ["icons/*", "*"],
       "matches": ["https://discord.com/*", "https://*.discord.com/*"]
     }
   ]
