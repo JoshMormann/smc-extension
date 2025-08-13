@@ -1,4 +1,5 @@
 import { ExtensionMessage, AuthState } from '../types';
+import { PopupAuthService } from '../shared/popup-auth';
 
 /**
  * Popup script for the SREF Mining Extension
@@ -14,15 +15,19 @@ class PopupManager {
 
   private async init() {
     try {
+      console.log('🚀 POPUP: Initializing popup...');
+      
       // Set up event listeners
       this.setupEventListeners();
       
-      // Load initial state
-      await this.loadAuthStatus();
+      // Initialize Supabase auth first
+      await this.initializeAuth();
+      
+      // Load recent SREFs
       this.loadRecentSREFs();
       
     } catch (error) {
-      console.error('Failed to initialize popup:', error);
+      console.error('❌ POPUP: Failed to initialize popup:', error);
       this.showError('Failed to initialize extension');
     }
   }
@@ -42,25 +47,34 @@ class PopupManager {
     openLibraryBtn?.addEventListener('click', () => this.handleOpenLibrary());
   }
 
-  private async loadAuthStatus() {
+  private async initializeAuth() {
     try {
       this.showLoading();
       
-      const message: ExtensionMessage = {
-        type: 'GET_AUTH_STATUS',
-      };
+      console.log('🔐 POPUP: Initializing Supabase auth...');
       
-      const response = await chrome.runtime.sendMessage(message);
+      // Initialize Supabase auth and handle any callbacks
+      const authState = await PopupAuthService.initializeAuth();
       
-      if (response.success) {
-        this.authState = response.data;
+      // Also handle potential OAuth callbacks
+      const callbackState = await PopupAuthService.handleAuthCallback();
+      
+      // Use the callback state if available, otherwise use initial state
+      this.authState = callbackState.isAuthenticated ? callbackState : authState;
+      
+      console.log('🔐 POPUP: Auth state:', this.authState);
+      
+      // Set up auth state change listener
+      PopupAuthService.onAuthStateChange((newAuthState) => {
+        console.log('🔐 POPUP: Auth state changed:', newAuthState);
+        this.authState = newAuthState;
         this.updateUI();
-      } else {
-        throw new Error(response.error || 'Failed to get auth status');
-      }
+      });
+      
+      this.updateUI();
     } catch (error) {
-      console.error('Failed to load auth status:', error);
-      this.showError('Failed to load authentication status');
+      console.error('❌ POPUP: Failed to initialize auth:', error);
+      this.showError('Failed to initialize authentication');
     }
   }
 
@@ -163,32 +177,19 @@ class PopupManager {
 
   private async handleSignIn(provider: 'google' | 'discord') {
     try {
-      // For OAuth sign-in, we need to create a new tab
-      // This is a simplified approach - in production you'd want proper OAuth flow
-      const authUrl = this.getAuthUrl(provider);
+      console.log(`🔐 POPUP: Starting ${provider} sign in...`);
       
-      // Open auth tab
-      const tab = await chrome.tabs.create({ url: authUrl });
+      const result = await PopupAuthService.signInWithOAuth(provider);
       
-      // Monitor for auth completion
-      // This is a basic implementation - you'd want proper OAuth callback handling
-      const checkAuth = setInterval(async () => {
-        try {
-          await this.loadAuthStatus();
-          if (this.authState?.isAuthenticated) {
-            clearInterval(checkAuth);
-            chrome.tabs.remove(tab.id!);
-          }
-        } catch (error) {
-          // Continue checking
-        }
-      }, 1000);
-      
-      // Stop checking after 2 minutes
-      setTimeout(() => clearInterval(checkAuth), 120000);
-      
+      if (result.success) {
+        console.log(`🔐 POPUP: ${provider} OAuth initiated`);
+        // OAuth will redirect and we'll handle it in the auth state change listener
+      } else {
+        console.error(`🔐 POPUP: ${provider} sign in failed:`, result.error);
+        this.showError(`${provider} sign in failed: ${result.error}`);
+      }
     } catch (error) {
-      console.error('Sign in failed:', error);
+      console.error('🔐 POPUP: Sign in failed:', error);
       this.showError('Sign in failed. Please try again.');
     }
   }
@@ -203,14 +204,19 @@ class PopupManager {
 
   private async handleSignOut() {
     try {
-      // Clear local auth state
-      await chrome.storage.local.clear();
+      console.log('🔐 POPUP: Starting sign out...');
       
-      // Reload auth status
-      await this.loadAuthStatus();
+      const result = await PopupAuthService.signOut();
       
+      if (result.success) {
+        console.log('🔐 POPUP: Signed out successfully');
+        // Auth state change listener will handle UI update
+      } else {
+        console.error('🔐 POPUP: Sign out failed:', result.error);
+        this.showError(`Sign out failed: ${result.error}`);
+      }
     } catch (error) {
-      console.error('Sign out failed:', error);
+      console.error('🔐 POPUP: Sign out failed:', error);
       this.showError('Sign out failed. Please try again.');
     }
   }

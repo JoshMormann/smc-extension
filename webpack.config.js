@@ -8,7 +8,7 @@ module.exports = (env, argv) => {
   
   return {
     entry: {
-      background: './src/background/background.ts',
+      background: './src/background/background-simple.ts',
       content: './src/content/content.ts',
       popup: './src/popup/popup.ts',
     },
@@ -29,7 +29,8 @@ module.exports = (env, argv) => {
         {
           test: /\.css$/,
           use: [
-            isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
+            // Always extract CSS so files like content.css exist for the extension
+            MiniCssExtractPlugin.loader,
             'css-loader',
           ],
         },
@@ -64,11 +65,10 @@ module.exports = (env, argv) => {
         chunks: ['popup'],
       }),
       
-      ...(isProduction ? [
-        new MiniCssExtractPlugin({
-          filename: '[name].css',
-        }),
-      ] : []),
+      // Always emit CSS files (both dev and prod)
+      new MiniCssExtractPlugin({
+        filename: '[name].css',
+      }),
     ],
     
     devtool: isProduction ? 'source-map' : 'inline-source-map',

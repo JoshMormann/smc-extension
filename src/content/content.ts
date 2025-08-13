@@ -29,9 +29,9 @@ class SREFMiner {
   private start() {
     console.log('Starting SREF detection on:', window.location.href);
     
-    // Check if we're on a Discord page (MidJourney runs in Discord)
-    if (!this.isDiscordPage()) {
-      console.log('Not a Discord page, SREF mining disabled');
+    // Check if we're on a MidJourney page
+    if (!this.isMidJourneyPage()) {
+      console.log('Not a MidJourney page, SREF mining disabled');
       return;
     }
 
@@ -40,8 +40,8 @@ class SREFMiner {
     this.scanExistingSREFs();
   }
 
-  private isDiscordPage(): boolean {
-    return window.location.hostname.includes('discord.com');
+  private isMidJourneyPage(): boolean {
+    return window.location.hostname.includes('midjourney.com');
   }
 
   private startObserving() {

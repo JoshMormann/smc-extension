@@ -6,7 +6,7 @@ import { AuthService, SREFService } from '../shared/supabase';
  * Handles authentication, API calls, and message passing
  */
 
-console.log('SREF Mining Extension background script loaded');
+console.log('🚀 SREF Mining Extension background script loaded - timestamp:', new Date().toISOString());
 
 // Handle extension installation
 chrome.runtime.onInstalled.addListener((details) => {
@@ -56,10 +56,12 @@ chrome.runtime.onMessage.addListener((
  */
 async function handleGetAuthStatus(sendResponse: (response: any) => void) {
   try {
+    console.log('🔐 Getting auth status...');
     const authState = await AuthService.getAuthState();
+    console.log('🔐 Auth state received:', authState);
     sendResponse({ success: true, data: authState });
   } catch (error) {
-    console.error('Failed to get auth status:', error);
+    console.error('❌ Failed to get auth status:', error);
     sendResponse({ success: false, error: 'Failed to get authentication status' });
   }
 }

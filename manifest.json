@@ -4,16 +4,25 @@
   "version": "1.0.0",
   "description": "Seamlessly mine SREF codes from MidJourney and save them to your SREF Manager library",
   
+  
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
-    "notifications"
+    "notifications",
+    "identity",
+    "tabs"
   ],
   
+
   "host_permissions": [
     "https://discord.com/*",
-    "https://*.discord.com/*"
+    "https://*.discord.com/*",
+    "https://midjourney.com/*",
+    "https://*.midjourney.com/*",
+    "https://accounts.google.com/*",
+    "https://oauth2.googleapis.com/*",
+    "https://www.googleapis.com/*"
   ],
   
   "background": {
@@ -22,7 +31,7 @@
   
   "content_scripts": [
     {
-      "matches": ["https://discord.com/*", "https://*.discord.com/*"],
+      "matches": ["https://discord.com/*", "https://*.discord.com/*", "https://midjourney.com/*", "https://*.midjourney.com/*"],
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_end"
@@ -50,7 +59,7 @@
   "web_accessible_resources": [
     {
       "resources": ["icons/*", "*"],
-      "matches": ["https://discord.com/*", "https://*.discord.com/*"]
+      "matches": ["https://discord.com/*", "https://*.discord.com/*", "https://midjourney.com/*", "https://*.midjourney.com/*"]
     }
   ]
 }
