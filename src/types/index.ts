@@ -1,28 +1,28 @@
-// Shared types for the SREF Mining Extension
+// Core types for SMC Extension
 
-export interface SREFCode {
-  id?: string;
-  title: string;
-  code_value: string;
-  sv_version: 4 | 6;
-  images: SREFImage[];
-  tags: string[];
-  user_id?: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface SREFImage {
-  id?: string;
-  image_url: string;
-  position: number;
-}
-
-export interface MidJourneyResult {
-  srefCode: string;
+export interface DetectedSREF {
+  code: string;
+  element: HTMLElement;
   images: string[];
-  prompt?: string | undefined;
-  messageId?: string | undefined;
+  isKnown: boolean;
+  timestamp: number;
+  isProcessed: boolean;
+  isVisible: boolean;
+}
+
+export interface ScannerState {
+  processedElements: Set<HTMLElement>;
+  scrollDebounceTimer: number;
+  userSavedCodes: Set<string>;
+  isAuthenticated: boolean;
+  isProcessing: boolean;
+}
+
+export interface SaveSREFRequest {
+  code: string;
+  name: string;
+  images: string[];
+  userId: string;
 }
 
 export interface AuthState {
@@ -32,28 +32,16 @@ export interface AuthState {
     email?: string | undefined;
   } | undefined;
   session?: any;
-  tokens?: {
-    access_token: string;
-    refresh_token?: string;
-    expires_in?: number;
-  };
 }
 
 export interface ExtensionMessage {
-  type: 'SREF_DETECTED' | 'SAVE_SREF' | 'AUTH_STATUS' | 'GET_AUTH_STATUS';
+  type: 'SREF_DETECTED' | 'SAVE_SREF' | 'AUTH_STATUS' | 'GET_AUTH_STATUS' | 'TRANSFER_SESSION' | 'TEST_CONNECTION';
   data?: any;
 }
 
-export interface SaveSREFRequest {
-  title: string;
-  srefCode: string;
-  images: string[];
-  tags: string[];
-  svVersion: 4 | 6;
-}
-
-// Chrome extension specific types
-export interface DetectedSREF extends MidJourneyResult {
+export interface SREFIndicator {
   element: HTMLElement;
-  timestamp: number;
+  srefCode: string;
+  isKnown: boolean;
+  isVisible: boolean;
 }

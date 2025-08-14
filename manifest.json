@@ -1,28 +1,22 @@
 {
   "manifest_version": 3,
-  "name": "SREF Mining Extension",
+  "name": "SMC Extension",
   "version": "1.0.0",
-  "description": "Seamlessly mine SREF codes from MidJourney and save them to your SREF Manager library",
-  
+  "description": "Save SREF codes from Midjourney to your SMC Manager account",
   
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
-    "notifications",
-    "identity",
     "tabs"
   ],
   
-
   "host_permissions": [
-    "https://discord.com/*",
-    "https://*.discord.com/*",
     "https://midjourney.com/*",
+    "https://www.midjourney.com/*",
     "https://*.midjourney.com/*",
-    "https://accounts.google.com/*",
-    "https://oauth2.googleapis.com/*",
-    "https://www.googleapis.com/*"
+    "https://qqbbssxxddcsuboiceey.supabase.co/*",
+    "http://localhost:5173/*"
   ],
   
   "background": {
@@ -31,16 +25,19 @@
   
   "content_scripts": [
     {
-      "matches": ["https://discord.com/*", "https://*.discord.com/*", "https://midjourney.com/*", "https://*.midjourney.com/*"],
+      "matches": [
+        "https://midjourney.com/*",
+        "https://www.midjourney.com/*",
+        "https://*.midjourney.com/*"
+      ],
       "js": ["content.js"],
-      "css": ["content.css"],
       "run_at": "document_end"
     }
   ],
   
   "action": {
     "default_popup": "popup.html",
-    "default_title": "SREF Mining Extension",
+    "default_title": "SMC Extension",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
@@ -58,8 +55,8 @@
   
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "*"],
-      "matches": ["https://discord.com/*", "https://*.discord.com/*", "https://midjourney.com/*", "https://*.midjourney.com/*"]
+      "resources": ["content.js"],
+      "matches": ["<all_urls>"]
     }
   ]
 }

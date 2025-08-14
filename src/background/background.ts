@@ -1,152 +1,194 @@
-import { ExtensionMessage, SaveSREFRequest } from '../types';
-import { AuthService, SREFService } from '../shared/supabase';
+import { AuthService } from '../shared/supabase';
 
-/**
- * Background service worker for the SREF Mining Extension
- * Handles authentication, API calls, and message passing
- */
+console.log('🚀 SMC: Background script starting...');
 
-console.log('🚀 SREF Mining Extension background script loaded - timestamp:', new Date().toISOString());
+// Add a simple test to verify the script is running
+setTimeout(() => {
+  console.log('⏰ SMC: Background script is alive and running!');
+}, 1000);
 
-// Handle extension installation
-chrome.runtime.onInstalled.addListener((details) => {
-  console.log('Extension installed:', details);
+chrome.runtime.onMessage.addListener((message: any, sender, sendResponse) => {
+  console.log('📨 SMC: Received message:', message.type);
   
-  if (details.reason === 'install') {
-    // Set up initial extension state
-    chrome.storage.local.set({
-      isFirstTime: true,
-      settings: {
-        autoDetect: true,
-        notifications: true,
-      },
-    });
+  if (message.type === 'TEST_CONNECTION') {
+    console.log('🔧 SMC: Test connection received');
+    sendResponse({ success: true, data: { message: 'Background script is working!' } });
+    return true;
   }
+  
+  if (message.type === 'GET_AUTH_STATUS') {
+    console.log('🔐 SMC: Getting auth status...');
+    handleGetAuthStatus(sendResponse);
+    return true;
+  }
+  
+  if (message.type === 'TRANSFER_SESSION') {
+    console.log('🔄 SMC: Transfer session received');
+    handleSessionTransfer(sendResponse);
+    return true;
+  }
+  
+  console.log('❓ SMC: Unknown message type:', message.type);
+  sendResponse({ success: false, error: 'Unknown message type' });
+  return true;
 });
 
-// Handle messages from content scripts and popup
-chrome.runtime.onMessage.addListener((
-  message: ExtensionMessage,
-  sender,
-  sendResponse
-) => {
-  console.log('Background received message:', message.type, message.data);
-
-  switch (message.type) {
-    case 'GET_AUTH_STATUS':
-      handleGetAuthStatus(sendResponse);
-      return true; // Keep message channel open for async response
-
-    case 'SAVE_SREF':
-      handleSaveSREF(message.data as SaveSREFRequest, sendResponse);
-      return true; // Keep message channel open for async response
-
-    case 'SREF_DETECTED':
-      handleSREFDetected(message.data, sender);
-      return false; // No async response needed
-
-    default:
-      console.warn('Unknown message type:', message.type);
-      return false;
-  }
-});
-
-/**
- * Handle authentication status requests
- */
 async function handleGetAuthStatus(sendResponse: (response: any) => void) {
   try {
-    console.log('🔐 Getting auth status...');
-    const authState = await AuthService.getAuthState();
-    console.log('🔐 Auth state received:', authState);
-    sendResponse({ success: true, data: authState });
-  } catch (error) {
-    console.error('❌ Failed to get auth status:', error);
-    sendResponse({ success: false, error: 'Failed to get authentication status' });
-  }
-}
-
-/**
- * Handle SREF save requests
- */
-async function handleSaveSREF(
-  request: SaveSREFRequest,
-  sendResponse: (response: any) => void
-) {
-  try {
-    const result = await SREFService.saveSREF({
-      title: request.title,
-      code_value: request.srefCode,
-      sv_version: request.svVersion,
-      images: request.images.map((url, index) => ({
-        image_url: url,
-        position: index,
-      })),
-      tags: request.tags,
-    });
-
-    if (result.success) {
-      // Show success notification
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icons/icon-48.png',
-        title: 'SREF Saved!',
-        message: `"${request.title}" has been saved to your library.`,
-      });
-
-      sendResponse({ success: true, data: result.data });
-    } else {
-      sendResponse({ success: false, error: result.error });
+    console.log('🔐 BACKGROUND: Getting auth status...');
+    
+    // First check if we have a stored session
+    const storedSession = await chrome.storage.local.get(['smc_session']);
+    
+    if (storedSession.smc_session) {
+      console.log('🔐 BACKGROUND: Found stored session, checking with Supabase...');
+      const { data, error } = await AuthService.setSession(storedSession.smc_session);
+      
+      if (!error) {
+        const authState = await AuthService.getAuthState();
+        console.log('🔐 BACKGROUND: Auth state from stored session:', authState);
+        sendResponse({ success: true, data: authState });
+        return;
+      }
     }
-  } catch (error) {
-    console.error('Failed to save SREF:', error);
-    sendResponse({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to save SREF' 
-    });
+    
+    // Fall back to checking Supabase directly
+    console.log('🔐 BACKGROUND: No stored session, checking Supabase directly...');
+    const authState = await AuthService.getAuthState();
+    console.log('🔐 BACKGROUND: Auth state from Supabase:', authState);
+    sendResponse({ success: true, data: authState });
+  } catch (error: any) {
+    console.error('❌ BACKGROUND: Error getting auth status:', error);
+    sendResponse({ success: false, error: 'Failed to get auth status: ' + error.message });
   }
 }
 
-/**
- * Handle SREF detection events from content scripts
- */
-function handleSREFDetected(data: any, sender: chrome.runtime.MessageSender) {
-  console.log('SREF detected on page:', data, sender.tab?.url);
-  
-  // Store the detected SREF for popup access
-  chrome.storage.local.set({
-    lastDetectedSREF: {
-      ...data,
-      timestamp: Date.now(),
-      tabId: sender.tab?.id,
-      url: sender.tab?.url,
-    },
-  });
+async function handleSessionTransfer(sendResponse: (response: any) => void) {
+  try {
+    console.log('🔄 BACKGROUND: Starting session transfer...');
+    const sessionData = await getSessionFromWebApp();
+    
+    if (sessionData) {
+      console.log('🔄 BACKGROUND: Found session data, setting in Supabase...');
+      
+      // Set the session in Supabase
+      const { data, error } = await AuthService.setSession(sessionData);
+      
+      if (error) {
+        console.error('🔄 BACKGROUND: Failed to set session in Supabase:', error);
+        sendResponse({ success: false, error: 'Failed to set session: ' + error.message });
+        return;
+      }
+      
+      // Store session in local storage for persistence
+      await chrome.storage.local.set({ smc_session: sessionData });
+      
+      console.log('🔄 BACKGROUND: Session transferred and stored successfully');
+      sendResponse({ success: true, data: { message: 'Session transferred successfully' } });
+    } else {
+      console.log('❌ BACKGROUND: No session data found in SMC Manager');
+      sendResponse({ success: false, error: 'No session found in SMC Manager. Please log in to SMC Manager first.' });
+    }
+  } catch (error: any) {
+    console.error('❌ BACKGROUND: Error during session transfer:', error);
+    sendResponse({ success: false, error: 'Session transfer failed: ' + error.message });
+  }
+}
 
-  // Show badge notification
-  if (sender.tab?.id) {
-    chrome.action.setBadgeText({
-      text: '!',
-      tabId: sender.tab.id,
+async function getSessionFromWebApp(): Promise<any> {
+  try {
+    console.log('🔄 BACKGROUND: Attempting to get session from SMC Manager web app...');
+    
+    // First check if SMC Manager is accessible
+    const response = await fetch('http://localhost:5173', { 
+      method: 'GET', 
+      credentials: 'include' 
     });
     
-    chrome.action.setBadgeBackgroundColor({
-      color: '#4CAF50',
-      tabId: sender.tab.id,
+    if (!response.ok) {
+      console.log('❌ BACKGROUND: SMC Manager not accessible at localhost:5173');
+      return null;
+    }
+    
+    // Find SMC Manager tab
+    const tabs = await chrome.tabs.query({ url: 'http://localhost:5173/*' });
+    
+    if (tabs.length === 0) {
+      console.log('❌ BACKGROUND: No SMC Manager tab found. Please open SMC Manager in a tab.');
+      return null;
+    }
+    
+    const targetTab = tabs[0];
+    if (!targetTab || !targetTab.id) {
+      console.log('❌ BACKGROUND: Invalid SMC Manager tab');
+      return null;
+    }
+    
+    console.log('🔄 BACKGROUND: Found SMC Manager tab, attempting to get session...');
+    
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: targetTab.id },
+      func: () => {
+        // This function runs in the context of the SMC Manager web app
+        try {
+          console.log('🔄 WEBAPP: Looking for Supabase session in localStorage...');
+          
+          // Try different possible storage keys
+          const supabaseSession = localStorage.getItem('sb-qqbbssxxddcsuboiceey-auth-token');
+          if (supabaseSession) {
+            console.log('🔄 WEBAPP: Found session in sb-qqbbssxxddcsuboiceey-auth-token');
+            return JSON.parse(supabaseSession);
+          }
+          
+          // Try alternative storage keys
+          const alternativeKeys = [
+            'supabase.auth.token',
+            'supabase-session',
+            'sb-auth-token'
+          ];
+          
+          for (const key of alternativeKeys) {
+            const session = localStorage.getItem(key);
+            if (session) {
+              console.log(`🔄 WEBAPP: Found session in ${key}`);
+              return JSON.parse(session);
+            }
+          }
+          
+          // Log all localStorage keys for debugging
+          console.log('🔄 WEBAPP: All localStorage keys:', Object.keys(localStorage));
+          
+          return null;
+        } catch (error) {
+          console.error('🔄 WEBAPP: Error getting session:', error);
+          return null;
+        }
+      }
     });
+    
+    if (results && results[0] && results[0].result) {
+      console.log('🔄 BACKGROUND: Successfully retrieved session data');
+      return results[0].result;
+    }
+    
+    console.log('❌ BACKGROUND: No session data found in SMC Manager');
+    return null;
+  } catch (error) {
+    console.error('❌ BACKGROUND: Error getting session from web app:', error);
+    return null;
   }
 }
 
-// Clear badge when tab is updated
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.status === 'loading') {
-    chrome.action.setBadgeText({ text: '', tabId });
-  }
+// Add startup listeners for debugging
+chrome.runtime.onStartup.addListener(() => {
+  console.log('🚀 SMC: Extension started');
 });
 
-// Handle auth changes
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace === 'local' && changes.authState) {
-    console.log('Auth state changed:', changes.authState.newValue);
-  }
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('🚀 SMC: Extension installed');
 });
+
+console.log('✅ SMC: Background script loaded successfully');
+
+// Export to make this a module
+export {};
