@@ -1,5 +1,14 @@
 console.log('🚀 SMC: TEST Popup script starting...');
 
+// Add error handling for script loading
+window.addEventListener('error', (event) => {
+  console.error('❌ POPUP: Script error:', event.error);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('❌ POPUP: Unhandled promise rejection:', event.reason);
+});
+
 class SMCPopup {
   private statusElement!: HTMLElement;
   private statusTextElement!: HTMLElement;
@@ -12,27 +21,48 @@ class SMCPopup {
   private testPingBtn!: HTMLButtonElement;
 
   constructor() {
-    this.initializeElements();
-    this.setupEventListeners();
-    this.testConnection();
+    console.log('🚀 SMC: TEST Creating popup instance...');
+    try {
+      this.initializeElements();
+      this.setupEventListeners();
+      this.testConnection();
+      console.log('✅ SMC: TEST Popup instance created successfully');
+    } catch (error) {
+      console.error('❌ SMC: TEST Error creating popup instance:', error);
+    }
   }
 
   private initializeElements() {
-    this.statusElement = document.getElementById('status') as HTMLElement;
-    this.statusTextElement = document.getElementById('statusText') as HTMLElement;
-    this.unauthenticatedDiv = document.getElementById('unauthenticated') as HTMLElement;
-    this.authenticatedDiv = document.getElementById('authenticated') as HTMLElement;
-    this.userEmailElement = document.getElementById('userEmail') as HTMLElement;
-    this.transferSessionBtn = document.getElementById('transferSession') as HTMLButtonElement;
-    this.refreshBtn = document.getElementById('refreshBtn') as HTMLButtonElement;
-    this.transferErrorElement = document.getElementById('transferError') as HTMLElement;
-    this.testPingBtn = document.getElementById('testPing') as HTMLButtonElement;
+    console.log('🔧 POPUP: Initializing elements...');
+    try {
+      this.statusElement = document.getElementById('status') as HTMLElement;
+      this.statusTextElement = document.getElementById('statusText') as HTMLElement;
+      this.unauthenticatedDiv = document.getElementById('unauthenticated') as HTMLElement;
+      this.authenticatedDiv = document.getElementById('authenticated') as HTMLElement;
+      this.userEmailElement = document.getElementById('userEmail') as HTMLElement;
+      this.transferSessionBtn = document.getElementById('transferSession') as HTMLButtonElement;
+      this.refreshBtn = document.getElementById('refreshBtn') as HTMLButtonElement;
+      this.transferErrorElement = document.getElementById('transferError') as HTMLElement;
+      this.testPingBtn = document.getElementById('testPing') as HTMLButtonElement;
+      
+      console.log('✅ POPUP: Elements initialized successfully');
+    } catch (error) {
+      console.error('❌ POPUP: Error initializing elements:', error);
+      throw error;
+    }
   }
 
   private setupEventListeners() {
-    this.transferSessionBtn.addEventListener('click', () => this.handleSessionTransfer());
-    this.refreshBtn.addEventListener('click', () => this.testConnection());
-    this.testPingBtn.addEventListener('click', () => this.handleTestPing());
+    console.log('🔧 POPUP: Setting up event listeners...');
+    try {
+      this.transferSessionBtn.addEventListener('click', () => this.handleSessionTransfer());
+      this.refreshBtn.addEventListener('click', () => this.testConnection());
+      this.testPingBtn.addEventListener('click', () => this.handleTestPing());
+      console.log('✅ POPUP: Event listeners set up successfully');
+    } catch (error) {
+      console.error('❌ POPUP: Error setting up event listeners:', error);
+      throw error;
+    }
   }
 
   private async testConnection() {
@@ -102,16 +132,12 @@ class SMCPopup {
   }
 
   private showAuthenticatedState(email: string) {
-    this.statusElement.className = 'status connected';
-    this.statusTextElement.textContent = 'Connected to SMC Manager';
-    this.userEmailElement.textContent = email;
     this.unauthenticatedDiv.classList.add('hidden');
     this.authenticatedDiv.classList.remove('hidden');
+    this.userEmailElement.textContent = email;
   }
 
   private showUnauthenticatedState() {
-    this.statusElement.className = 'status disconnected';
-    this.statusTextElement.textContent = 'Not connected';
     this.authenticatedDiv.classList.add('hidden');
     this.unauthenticatedDiv.classList.remove('hidden');
   }
@@ -128,14 +154,16 @@ class SMCPopup {
 
   private hideTransferError() {
     this.transferErrorElement.classList.add('hidden');
-    this.transferErrorElement.textContent = '';
   }
 }
 
 // Initialize popup when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('🚀 SMC: TEST DOM ready, initializing popup...');
+console.log('🚀 SMC: TEST DOM ready, initializing popup...');
+try {
   new SMCPopup();
-});
+  console.log('✅ SMC: TEST Popup initialized successfully');
+} catch (error) {
+  console.error('❌ SMC: TEST Failed to initialize popup:', error);
+}
 
 console.log('✅ SMC: TEST Popup script loaded');
