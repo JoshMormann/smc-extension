@@ -2,29 +2,54 @@ import { AuthService } from '../shared/supabase';
 
 console.log('🚀 SMC: Background script starting...');
 
-// Add a simple test to verify the script is running
-setTimeout(() => {
-  console.log('⏰ SMC: Background script is alive and running!');
-}, 1000);
+// Keep-alive mechanism to prevent service worker from sleeping
+let keepAliveInterval: any;
 
+function startKeepAlive() {
+  console.log('⏰ SMC: Starting keep-alive mechanism...');
+  keepAliveInterval = setInterval(() => {
+    console.log('⏰ SMC: Keep-alive ping...');
+  }, 25000); // Ping every 25 seconds
+}
+
+function stopKeepAlive() {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+    console.log('⏰ SMC: Stopped keep-alive mechanism');
+  }
+}
+
+// Simple message router
 chrome.runtime.onMessage.addListener((message: any, sender, sendResponse) => {
   console.log('📨 SMC: Received message:', message.type);
   
-  if (message.type === 'TEST_CONNECTION') {
-    console.log('🔧 SMC: Test connection received');
-    sendResponse({ success: true, data: { message: 'Background script is working!' } });
+  // Wake up the service worker
+  startKeepAlive();
+  
+  if (message.type === 'TEST_PING') {
+    console.log('🏓 SMC: TEST Pong!');
+    sendResponse({ success: true, data: { message: 'test pong' } });
     return true;
   }
   
   if (message.type === 'GET_AUTH_STATUS') {
-    console.log('🔐 SMC: Getting auth status...');
     handleGetAuthStatus(sendResponse);
     return true;
   }
   
   if (message.type === 'TRANSFER_SESSION') {
-    console.log('🔄 SMC: Transfer session received');
     handleSessionTransfer(sendResponse);
+    return true;
+  }
+  
+  if (message.type === 'GET_USER_SREF_CODES') {
+    handleGetUserSREFCodes(message.data.userId, sendResponse);
+    return true;
+  }
+  
+  if (message.type === 'PING') {
+    console.log('🏓 SMC: Pong!');
+    sendResponse({ success: true, data: { message: 'pong' } });
     return true;
   }
   
@@ -36,26 +61,8 @@ chrome.runtime.onMessage.addListener((message: any, sender, sendResponse) => {
 async function handleGetAuthStatus(sendResponse: (response: any) => void) {
   try {
     console.log('🔐 BACKGROUND: Getting auth status...');
-    
-    // First check if we have a stored session
-    const storedSession = await chrome.storage.local.get(['smc_session']);
-    
-    if (storedSession.smc_session) {
-      console.log('🔐 BACKGROUND: Found stored session, checking with Supabase...');
-      const { data, error } = await AuthService.setSession(storedSession.smc_session);
-      
-      if (!error) {
-        const authState = await AuthService.getAuthState();
-        console.log('🔐 BACKGROUND: Auth state from stored session:', authState);
-        sendResponse({ success: true, data: authState });
-        return;
-      }
-    }
-    
-    // Fall back to checking Supabase directly
-    console.log('🔐 BACKGROUND: No stored session, checking Supabase directly...');
     const authState = await AuthService.getAuthState();
-    console.log('🔐 BACKGROUND: Auth state from Supabase:', authState);
+    console.log('🔐 BACKGROUND: Auth state:', authState);
     sendResponse({ success: true, data: authState });
   } catch (error: any) {
     console.error('❌ BACKGROUND: Error getting auth status:', error);
@@ -66,129 +73,46 @@ async function handleGetAuthStatus(sendResponse: (response: any) => void) {
 async function handleSessionTransfer(sendResponse: (response: any) => void) {
   try {
     console.log('🔄 BACKGROUND: Starting session transfer...');
-    const sessionData = await getSessionFromWebApp();
-    
-    if (sessionData) {
-      console.log('🔄 BACKGROUND: Found session data, setting in Supabase...');
-      
-      // Set the session in Supabase
-      const { data, error } = await AuthService.setSession(sessionData);
-      
-      if (error) {
-        console.error('🔄 BACKGROUND: Failed to set session in Supabase:', error);
-        sendResponse({ success: false, error: 'Failed to set session: ' + error.message });
-        return;
-      }
-      
-      // Store session in local storage for persistence
-      await chrome.storage.local.set({ smc_session: sessionData });
-      
-      console.log('🔄 BACKGROUND: Session transferred and stored successfully');
-      sendResponse({ success: true, data: { message: 'Session transferred successfully' } });
-    } else {
-      console.log('❌ BACKGROUND: No session data found in SMC Manager');
-      sendResponse({ success: false, error: 'No session found in SMC Manager. Please log in to SMC Manager first.' });
-    }
+    const result = await AuthService.transferSessionFromWebApp();
+    console.log('🔄 BACKGROUND: Session transfer result:', result);
+    sendResponse(result);
   } catch (error: any) {
     console.error('❌ BACKGROUND: Error during session transfer:', error);
     sendResponse({ success: false, error: 'Session transfer failed: ' + error.message });
   }
 }
 
-async function getSessionFromWebApp(): Promise<any> {
+async function handleGetUserSREFCodes(userId: string, sendResponse: (response: any) => void) {
   try {
-    console.log('🔄 BACKGROUND: Attempting to get session from SMC Manager web app...');
-    
-    // First check if SMC Manager is accessible
-    const response = await fetch('http://localhost:5173', { 
-      method: 'GET', 
-      credentials: 'include' 
-    });
-    
-    if (!response.ok) {
-      console.log('❌ BACKGROUND: SMC Manager not accessible at localhost:5173');
-      return null;
-    }
-    
-    // Find SMC Manager tab
-    const tabs = await chrome.tabs.query({ url: 'http://localhost:5173/*' });
-    
-    if (tabs.length === 0) {
-      console.log('❌ BACKGROUND: No SMC Manager tab found. Please open SMC Manager in a tab.');
-      return null;
-    }
-    
-    const targetTab = tabs[0];
-    if (!targetTab || !targetTab.id) {
-      console.log('❌ BACKGROUND: Invalid SMC Manager tab');
-      return null;
-    }
-    
-    console.log('🔄 BACKGROUND: Found SMC Manager tab, attempting to get session...');
-    
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: targetTab.id },
-      func: () => {
-        // This function runs in the context of the SMC Manager web app
-        try {
-          console.log('🔄 WEBAPP: Looking for Supabase session in localStorage...');
-          
-          // Try different possible storage keys
-          const supabaseSession = localStorage.getItem('sb-qqbbssxxddcsuboiceey-auth-token');
-          if (supabaseSession) {
-            console.log('🔄 WEBAPP: Found session in sb-qqbbssxxddcsuboiceey-auth-token');
-            return JSON.parse(supabaseSession);
-          }
-          
-          // Try alternative storage keys
-          const alternativeKeys = [
-            'supabase.auth.token',
-            'supabase-session',
-            'sb-auth-token'
-          ];
-          
-          for (const key of alternativeKeys) {
-            const session = localStorage.getItem(key);
-            if (session) {
-              console.log(`🔄 WEBAPP: Found session in ${key}`);
-              return JSON.parse(session);
-            }
-          }
-          
-          // Log all localStorage keys for debugging
-          console.log('🔄 WEBAPP: All localStorage keys:', Object.keys(localStorage));
-          
-          return null;
-        } catch (error) {
-          console.error('🔄 WEBAPP: Error getting session:', error);
-          return null;
-        }
-      }
-    });
-    
-    if (results && results[0] && results[0].result) {
-      console.log('🔄 BACKGROUND: Successfully retrieved session data');
-      return results[0].result;
-    }
-    
-    console.log('❌ BACKGROUND: No session data found in SMC Manager');
-    return null;
-  } catch (error) {
-    console.error('❌ BACKGROUND: Error getting session from web app:', error);
-    return null;
+    console.log('🔐 BACKGROUND: Getting user SREF codes...');
+    const codes = await AuthService.getUserSavedSREFs(userId);
+    console.log('🔐 BACKGROUND: Found', codes.length, 'SREF codes');
+    sendResponse({ success: true, data: codes });
+  } catch (error: any) {
+    console.error('❌ BACKGROUND: Error getting user SREF codes:', error);
+    sendResponse({ success: false, error: 'Failed to get SREF codes: ' + error.message });
   }
 }
 
 // Add startup listeners for debugging
 chrome.runtime.onStartup.addListener(() => {
   console.log('🚀 SMC: Extension started');
+  startKeepAlive();
 });
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('🚀 SMC: Extension installed');
+  startKeepAlive();
+});
+
+// Clean up on shutdown
+chrome.runtime.onSuspend.addListener(() => {
+  console.log('🚀 SMC: Extension suspending...');
+  stopKeepAlive();
 });
 
 console.log('✅ SMC: Background script loaded successfully');
+startKeepAlive();
 
 // Export to make this a module
 export {};

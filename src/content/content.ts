@@ -1,121 +1,114 @@
-console.log('🚀 SMC: Content script starting...');
+console.log('🚀 SMC: TEST Content script starting...');
 
 // Set global flags to indicate the content script is loaded
 (window as any).SMCContentScriptLoaded = true;
-(window as any).SMCContentScriptVersion = '1.0.1';
+(window as any).SMCContentScriptVersion = '1.0.4';
 
 /**
  * Main content script for SMC Extension
- * Initializes SREF scanning on Midjourney pages
+ * Handles SREF scanning on Midjourney pages
  */
 class SMCContentScript {
-  private sessionData: any = null;
+  private isAuthenticated = false;
+  private userSavedCodes: Set<string> = new Set();
 
   constructor() {
-    console.log('🚀 SMC: Content script class constructor called');
+    console.log('🚀 SMC: TEST Content script class constructor called');
     this.init();
   }
 
   private async init(): Promise<void> {
     try {
-      console.log('🚀 SMC: Content script initializing...');
+      console.log('🚀 SMC: TEST Content script initializing...');
       
       // Set up message listener for background script communication
       chrome.runtime.onMessage.addListener((message: any, sender, sendResponse) => {
-        console.log('📨 CONTENT: Received message:', message.type);
+        console.log('📨 CONTENT: TEST Received message:', message.type);
         
-        if (message.type === 'GET_AUTH_STATUS_FROM_CONTENT') {
-          this.handleGetAuthStatus(sendResponse);
+        if (message.type === 'TEST_PING') {
+          this.handleTestPing(sendResponse);
           return true;
         }
         
-        if (message.type === 'SET_SESSION_FROM_CONTENT') {
-          this.handleSetSession(message.data, sendResponse);
-          return true;
-        }
-        
-        console.log('❓ CONTENT: Unknown message type:', message.type);
-        sendResponse({ success: false, error: 'Unknown message type' });
+        console.log('❓ CONTENT: TEST Unknown message type:', message.type);
+        sendResponse({ success: false, error: 'Unknown test message type' });
         return true;
       });
       
-      console.log('✅ SMC: Content script message listener set up');
+      console.log('✅ SMC: TEST Content script message listener set up');
+      
+      // Test connection to service worker
+      await this.testServiceWorkerConnection();
       
       // Wait for DOM to be ready
       if (document.readyState === 'loading') {
-        console.log('📄 SMC: DOM still loading, waiting for DOMContentLoaded...');
+        console.log('📄 SMC: TEST DOM still loading, waiting for DOMContentLoaded...');
         document.addEventListener('DOMContentLoaded', () => this.initializeScanner());
       } else {
-        console.log('📄 SMC: DOM already ready, initializing scanner...');
+        console.log('📄 SMC: TEST DOM already ready, initializing scanner...');
         this.initializeScanner();
       }
     } catch (error: any) {
-      console.error('❌ SMC: Error in content script init:', error);
+      console.error('❌ SMC: TEST Error in content script init:', error);
     }
   }
 
-  private async handleGetAuthStatus(sendResponse: (response: any) => void) {
+  private async testServiceWorkerConnection(): Promise<void> {
     try {
-      console.log('🔐 CONTENT: Getting auth status...');
+      console.log('🔔 CONTENT: TEST Testing service worker connection...');
+      const response = await chrome.runtime.sendMessage({ type: 'TEST_PING' });
+      console.log('🔔 CONTENT: TEST Service worker response:', response);
       
-      if (this.sessionData) {
-        console.log('🔐 CONTENT: Using transferred session data');
-        // Return authenticated state based on transferred session
-        const authState = { 
-          isAuthenticated: true, 
-          user: { 
-            id: this.sessionData.user?.id || 'unknown',
-            email: this.sessionData.user?.email || 'unknown'
-          },
-          session: this.sessionData
-        };
-        console.log('🔐 CONTENT: Auth state result:', authState);
-        sendResponse({ success: true, data: authState });
+      if (response.success) {
+        console.log('✅ CONTENT: TEST Service worker connection successful');
       } else {
-        console.log('🔐 CONTENT: No session data, returning unauthenticated');
-        // For now, just return unauthenticated
-        const authState = { isAuthenticated: false, user: undefined };
-        console.log('🔐 CONTENT: Auth state result:', authState);
-        sendResponse({ success: true, data: authState });
+        console.log('❌ CONTENT: TEST Service worker connection failed');
       }
     } catch (error: any) {
-      console.error('❌ CONTENT: Error getting auth status:', error);
-      sendResponse({ success: false, error: 'Failed to get auth status: ' + error.message });
+      console.error('❌ CONTENT: TEST Failed to connect to service worker:', error);
     }
   }
 
-  private async handleSetSession(sessionData: any, sendResponse: (response: any) => void) {
+  private async handleTestPing(sendResponse: (response: any) => void) {
     try {
-      console.log('🔄 CONTENT: Setting session from background script...');
-      console.log('🔄 CONTENT: Session data received:', sessionData);
-      
-      // Store the session data
-      this.sessionData = sessionData;
-      
-      console.log('🔄 CONTENT: Session stored successfully');
-      sendResponse({ success: true, data: { message: 'Session stored successfully' } });
+      console.log('🏓 CONTENT: TEST Handling ping request...');
+      sendResponse({ 
+        success: true, 
+        data: { 
+          message: 'Content script is alive!',
+          timestamp: new Date().toISOString(),
+          version: '1.0.4'
+        } 
+      });
     } catch (error: any) {
-      console.error('🔄 CONTENT: Error setting session:', error);
-      sendResponse({ success: false, error: 'Failed to set session' });
+      console.error('❌ CONTENT: TEST Error handling ping:', error);
+      sendResponse({ success: false, error: 'Failed to handle ping' });
     }
   }
 
   private async initializeScanner(): Promise<void> {
     try {
-      console.log('🔍 SMC: Initializing SREF scanner...');
-      console.log('✅ SMC: SREF scanner would be initialized here');
-      console.log('✅ SMC: Ready to scan for SREF codes on Midjourney');
+      console.log('🔍 SMC: TEST Initializing SREF scanner...');
+      
+      // For now, just log that we're ready
+      console.log('🔍 SMC: TEST Ready to scan for SREF codes on Midjourney');
+      console.log('🔍 SMC: TEST Scanner will be active in production mode');
+      
+      // TODO: Initialize SREFScanner here when we add authentication back
+      // const scanner = new SREFScanner();
+      // scanner.initialize();
+      
     } catch (error: any) {
-      console.error('❌ SMC: Failed to initialize SREF scanner:', error);
+      console.error('❌ SMC: TEST Failed to initialize SREF scanner:', error);
     }
   }
 }
 
 // Initialize content script with error handling
 try {
-  console.log('🚀 SMC: Creating content script instance...');
+  console.log('🚀 SMC: TEST Creating content script instance...');
   new SMCContentScript();
-  console.log('✅ SMC: Content script loaded successfully');
+  console.log('✅ SMC: TEST Content script loaded successfully');
 } catch (error: any) {
-  console.error('❌ SMC: Failed to create content script instance:', error);
+  console.error('❌ SMC: TEST Failed to create content script instance:', error);
 }

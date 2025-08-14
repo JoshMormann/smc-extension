@@ -55,8 +55,30 @@
         .success:hover {
             background-color: #1e7e34;
         }
+        .danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .danger:hover {
+            background-color: #c82333;
+        }
         .hidden {
             display: none;
+        }
+        .error {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .test-section {
+            border-top: 1px solid #dee2e6;
+            margin-top: 15px;
+            padding-top: 15px;
+        }
+        .test-section h4 {
+            margin: 0 0 10px 0;
+            color: #6c757d;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -67,16 +89,22 @@
     
     <div id="unauthenticated" class="hidden">
         <p>You need to log in to SMC Manager to use this extension.</p>
+        <p><strong>Step 1:</strong> Open SMC Manager in a tab and log in (supports SSO)</p>
+        <p><strong>Step 2:</strong> Click the button below to transfer your session</p>
         <button id="transferSession" class="primary">Transfer Session from SMC Manager</button>
-        <button id="testConnection" class="secondary">Test Background Connection</button>
-        <button id="injectContentScript" class="secondary">Inject Content Script (Debug)</button>
+        <div id="transferError" class="error hidden"></div>
+        
+        <div class="test-section">
+            <h4>🧪 Test Controls</h4>
+            <button id="testPing" class="secondary">Test Ping</button>
+            <button id="refreshBtn" class="secondary">Refresh Status</button>
+        </div>
     </div>
     
     <div id="authenticated" class="hidden">
         <p>✅ Connected to SMC Manager</p>
         <p><strong>User:</strong> <span id="userEmail">Loading...</span></p>
-        <button id="testConnection" class="secondary">Test Background Connection</button>
-        <button id="injectContentScript" class="secondary">Inject Content Script (Debug)</button>
+        <button id="refreshBtn" class="secondary">Refresh Status</button>
     </div>
     
     <script src="popup.js"></script>

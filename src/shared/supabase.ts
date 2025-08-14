@@ -1,57 +1,60 @@
 import { createClient } from '@supabase/supabase-js';
-import { AuthState, SaveSREFRequest } from '../types';
 
 // Supabase configuration
 const SUPABASE_URL = 'https://qqbbssxxddcsuboiceey.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxYmJzc3h4ZGRjc3Vib2ljZWV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMzA4MDcsImV4cCI6MjA2NjcwNjgwN30.3NHXaXN_24TNoaXwaloPBu5nomHzeiC5m9DmGTuO1d8';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Create Supabase client with custom storage for Chrome extension
+const createSupabaseClient = () => {
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      storage: {
+        getItem: async (key: string) => {
+          const result = await chrome.storage.local.get([key]);
+          return result[key] || null;
+        },
+        setItem: async (key: string, value: string) => {
+          await chrome.storage.local.set({ [key]: value });
+        },
+        removeItem: async (key: string) => {
+          await chrome.storage.local.remove([key]);
+        },
+      },
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  });
+};
+
+export const supabase = createSupabaseClient();
 
 /**
- * Authentication service for session detection
+ * Authentication service for session transfer from SMC Manager
  */
 export class AuthService {
-  static async getAuthState(): Promise<AuthState> {
+  /**
+   * Get current authentication state
+   */
+  static async getAuthState() {
     try {
-      console.log('🔐 AUTH: Checking for existing session...');
-      
-      // First, try to get session from Supabase
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error('🔐 AUTH: Supabase session error:', error);
+        console.error('🔐 AUTH: Session error:', error);
         return { isAuthenticated: false };
       }
 
-      console.log('🔐 AUTH: Session check result:', {
-        hasSession: !!session,
-        sessionUser: session?.user?.email,
-        sessionExpires: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'N/A'
-      });
-
-      // If no session found, try to check if we can access the web app's session
       if (!session) {
-        console.log('🔐 AUTH: No session found, checking if we can access web app session...');
-        
-        // Try to access the web app's localStorage (this might not work due to CORS)
-        try {
-          // This is a fallback attempt - it likely won't work due to browser security
-          const webAppSession = await this.tryGetWebAppSession();
-          if (webAppSession) {
-            console.log('🔐 AUTH: Found web app session, attempting to use it...');
-            return webAppSession;
-          }
-        } catch (webAppError) {
-          console.log('🔐 AUTH: Could not access web app session (expected):', webAppError);
-        }
+        return { isAuthenticated: false };
       }
 
       return {
-        isAuthenticated: !!session,
-        user: session?.user ? {
+        isAuthenticated: true,
+        user: {
           id: session.user.id,
           email: session.user.email || undefined,
-        } : undefined,
+        },
         session,
       };
     } catch (error) {
@@ -61,77 +64,111 @@ export class AuthService {
   }
 
   /**
-   * Try to get session from the SMC Manager web app
-   * This is a fallback that likely won't work due to CORS restrictions
+   * Transfer session from SMC Manager web app
+   * This is the key method that enables SSO support
    */
-  private static async tryGetWebAppSession(): Promise<AuthState | null> {
+  static async transferSessionFromWebApp() {
     try {
-      // Try to access the SMC Manager web app's localStorage
-      // This will likely fail due to CORS, but worth trying
-      const response = await fetch('http://localhost:5173', {
-        method: 'GET',
-        credentials: 'include',
-      });
+      console.log('🔄 AUTH: Attempting session transfer from SMC Manager...');
       
-      if (response.ok) {
-        console.log('🔐 AUTH: Successfully connected to SMC Manager web app');
-        // Even if we can connect, we can't access their localStorage due to CORS
-        return null;
+      // Get session data from SMC Manager web app
+      const sessionData = await this.getSessionFromWebApp();
+      
+      if (!sessionData) {
+        console.log('❌ AUTH: No session found in SMC Manager');
+        return { success: false, error: 'No session found in SMC Manager. Please log in to SMC Manager first.' };
       }
+
+      console.log('🔄 AUTH: Found session data, setting in extension...');
+      
+      // Set the session in our Supabase client
+      const { data, error } = await supabase.auth.setSession(sessionData);
+      
+      if (error) {
+        console.error('❌ AUTH: Failed to set session:', error);
+        return { success: false, error: 'Failed to transfer session: ' + error.message };
+      }
+      
+      console.log('✅ AUTH: Session transferred successfully');
+      return { success: true, data };
     } catch (error) {
-      console.log('🔐 AUTH: Cannot access SMC Manager web app:', error);
+      console.error('❌ AUTH: Error during session transfer:', error);
+      return { success: false, error: 'Session transfer failed' };
     }
-    
-    return null;
   }
 
   /**
-   * Set session from external source (for session transfer)
+   * Get session from SMC Manager web app
+   * This method accesses the web app's localStorage to get the session
    */
-  static async setSession(sessionData: any): Promise<{ data: any; error: any }> {
+  private static async getSessionFromWebApp(): Promise<any> {
     try {
-      console.log('🔐 AUTH: Setting session from transfer data...');
+      // Find SMC Manager tab
+      const tabs = await chrome.tabs.query({ url: 'http://localhost:5173/*' });
       
-      // Extract session information from the transferred data
-      let session;
-      
-      if (sessionData.session) {
-        session = sessionData.session;
-      } else if (sessionData.access_token) {
-        // If we have an access token, try to create a session object
-        session = {
-          access_token: sessionData.access_token,
-          refresh_token: sessionData.refresh_token,
-          expires_at: sessionData.expires_at,
-          user: sessionData.user,
-        };
-      } else {
-        throw new Error('Invalid session data format');
+      if (tabs.length === 0) {
+        console.log('❌ AUTH: No SMC Manager tab found. Please open SMC Manager in a tab.');
+        return null;
       }
       
-      // Set the session in Supabase
-      const { data, error } = await supabase.auth.setSession(session);
-      
-      if (error) {
-        console.error('🔐 AUTH: Failed to set session:', error);
-        return { data: null, error };
+      const targetTab = tabs[0];
+      if (!targetTab || !targetTab.id) {
+        console.log('❌ AUTH: Invalid SMC Manager tab');
+        return null;
       }
       
-      console.log('🔐 AUTH: Session set successfully');
-      return { data, error: null };
+      console.log('🔄 AUTH: Found SMC Manager tab, getting session...');
+      
+      // Execute script in SMC Manager tab to get session
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: targetTab.id },
+        func: () => {
+          try {
+            // Try different possible storage keys for Supabase session
+            const storageKeys = [
+              'sb-qqbbssxxddcsuboiceey-auth-token',
+              'supabase.auth.token',
+              'supabase-session',
+              'sb-auth-token'
+            ];
+            
+            for (const key of storageKeys) {
+              const session = localStorage.getItem(key);
+              if (session) {
+                console.log(`🔄 WEBAPP: Found session in ${key}`);
+                return JSON.parse(session);
+              }
+            }
+            
+            // Log all localStorage keys for debugging
+            console.log('🔄 WEBAPP: All localStorage keys:', Object.keys(localStorage));
+            
+            return null;
+          } catch (error) {
+            console.error('🔄 WEBAPP: Error getting session:', error);
+            return null;
+          }
+        }
+      });
+      
+      if (results && results[0] && results[0].result) {
+        console.log('✅ AUTH: Successfully retrieved session data');
+        return results[0].result;
+      }
+      
+      console.log('❌ AUTH: No session data found in SMC Manager');
+      return null;
     } catch (error) {
-      console.error('🔐 AUTH: Error setting session:', error);
-      return { 
-        data: null, 
-        error: error instanceof Error ? error : new Error('Unknown error') 
-      };
+      console.error('❌ AUTH: Error getting session from web app:', error);
+      return null;
     }
   }
 
+  /**
+   * Get user's saved SREF codes
+   */
   static async getUserSavedSREFs(userId: string): Promise<string[]> {
     try {
-      console.log('🔐 AUTH: Fetching saved SREF codes for user:', userId);
-      
       const { data, error } = await supabase
         .from('sref_codes')
         .select('code_value')
@@ -142,7 +179,6 @@ export class AuthService {
         return [];
       }
 
-      console.log('🔐 AUTH: Found', data?.length || 0, 'saved SREF codes');
       return data?.map(item => item.code_value) || [];
     } catch (error) {
       console.error('🔐 AUTH: Failed to get user SREF codes:', error);
@@ -155,7 +191,12 @@ export class AuthService {
  * SREF management service
  */
 export class SREFService {
-  static async saveSREF(request: SaveSREFRequest) {
+  static async saveSREF(request: {
+    code: string;
+    name: string;
+    images: string[];
+    userId: string;
+  }) {
     try {
       console.log('💾 SREF: Saving SREF code:', request.code, 'with name:', request.name);
       

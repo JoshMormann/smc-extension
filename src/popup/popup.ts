@@ -1,163 +1,141 @@
-/**
- * Popup script for SMC Extension
- * Shows authentication status and basic info
- */
-import { AuthState } from '../types';
-
-console.log('🚀 SMC: Popup initializing...');
+console.log('🚀 SMC: TEST Popup script starting...');
 
 class SMCPopup {
-  private authState: AuthState = { isAuthenticated: false };
+  private statusElement!: HTMLElement;
+  private statusTextElement!: HTMLElement;
+  private unauthenticatedDiv!: HTMLElement;
+  private authenticatedDiv!: HTMLElement;
+  private userEmailElement!: HTMLElement;
+  private transferSessionBtn!: HTMLButtonElement;
+  private refreshBtn!: HTMLButtonElement;
+  private transferErrorElement!: HTMLElement;
+  private testPingBtn!: HTMLButtonElement;
 
   constructor() {
-    this.init();
-  }
-
-  private async init(): Promise<void> {
-    console.log('🚀 SMC: Popup initializing...');
+    this.initializeElements();
     this.setupEventListeners();
-    await this.checkAuthStatus();
+    this.testConnection();
   }
 
-  private setupEventListeners(): void {
-    // Test connection button
-    document.getElementById('testConnection')?.addEventListener('click', () => {
-      this.handleTestConnection();
-    });
-
-    // Transfer session button
-    document.getElementById('transferSession')?.addEventListener('click', () => {
-      this.handleSessionTransfer();
-    });
-
-    // Inject content script debug button
-    document.getElementById('injectContentScript')?.addEventListener('click', () => {
-      this.handleInjectContentScript();
-    });
+  private initializeElements() {
+    this.statusElement = document.getElementById('status') as HTMLElement;
+    this.statusTextElement = document.getElementById('statusText') as HTMLElement;
+    this.unauthenticatedDiv = document.getElementById('unauthenticated') as HTMLElement;
+    this.authenticatedDiv = document.getElementById('authenticated') as HTMLElement;
+    this.userEmailElement = document.getElementById('userEmail') as HTMLElement;
+    this.transferSessionBtn = document.getElementById('transferSession') as HTMLButtonElement;
+    this.refreshBtn = document.getElementById('refreshBtn') as HTMLButtonElement;
+    this.transferErrorElement = document.getElementById('transferError') as HTMLElement;
+    this.testPingBtn = document.getElementById('testPing') as HTMLButtonElement;
   }
 
-  private async handleTestConnection(): Promise<void> {
+  private setupEventListeners() {
+    this.transferSessionBtn.addEventListener('click', () => this.handleSessionTransfer());
+    this.refreshBtn.addEventListener('click', () => this.testConnection());
+    this.testPingBtn.addEventListener('click', () => this.handleTestPing());
+  }
+
+  private async testConnection() {
     try {
-      console.log('🔧 POPUP: Testing background connection...');
-      const response = await chrome.runtime.sendMessage({ type: 'TEST_CONNECTION' });
-      console.log('🔧 POPUP: Test connection response:', response);
+      console.log('🔐 POPUP: Testing connection...');
+      this.setStatus('Testing connection...', 'disconnected');
+      
+      const response = await chrome.runtime.sendMessage({ type: 'TEST_PING' });
       
       if (response.success) {
-        alert('✅ Background script is working!');
+        console.log('✅ POPUP: Connection test successful:', response.data);
+        this.setStatus('Connected to service worker', 'connected');
+        this.showUnauthenticatedState(); // Still show unauthenticated since we're in test mode
       } else {
-        alert('❌ Background script test failed: ' + response.error);
+        console.error('❌ POPUP: Connection test failed:', response.error);
+        this.setStatus('Connection failed', 'disconnected');
+        this.showUnauthenticatedState();
       }
-    } catch (error: any) {
-      console.error('🔧 POPUP: Test connection error:', error);
-      alert('❌ Test connection failed: ' + error.message);
+    } catch (error) {
+      console.error('❌ POPUP: Error testing connection:', error);
+      this.setStatus('Connection error', 'disconnected');
+      this.showUnauthenticatedState();
     }
   }
 
-  private async handleSessionTransfer(): Promise<void> {
+  private async handleTestPing() {
     try {
-      console.log('🔄 POPUP: Starting session transfer...');
-      const response = await chrome.runtime.sendMessage({ type: 'TRANSFER_SESSION' });
-      console.log('🔄 POPUP: Session transfer response:', response);
+      console.log('🏓 POPUP: Sending test ping...');
+      this.testPingBtn.disabled = true;
+      this.testPingBtn.textContent = 'Pinging...';
+      
+      const response = await chrome.runtime.sendMessage({ type: 'TEST_PING' });
       
       if (response.success) {
-        alert('✅ Session transferred successfully!');
-        await this.checkAuthStatus(); // Refresh auth status
+        console.log('✅ POPUP: Ping successful:', response.data);
+        alert('✅ Ping successful! Service worker is responding.');
       } else {
-        alert('❌ Session transfer failed: ' + response.error);
+        console.error('❌ POPUP: Ping failed:', response.error);
+        alert('❌ Ping failed: ' + (response.error || 'Unknown error'));
       }
-    } catch (error: any) {
-      console.error('🔄 POPUP: Session transfer error:', error);
-      alert('❌ Session transfer failed: ' + error.message);
+    } catch (error) {
+      console.error('❌ POPUP: Error during ping:', error);
+      alert('❌ Ping error: ' + error);
+    } finally {
+      this.testPingBtn.disabled = false;
+      this.testPingBtn.textContent = 'Test Ping';
     }
   }
 
-  private async handleInjectContentScript(): Promise<void> {
+  private async handleSessionTransfer() {
     try {
-      console.log('🔧 POPUP: Manually injecting content script...');
+      console.log('🔄 POPUP: Attempting session transfer...');
+      this.transferSessionBtn.disabled = true;
+      this.transferSessionBtn.textContent = 'Transferring Session...';
+      this.hideTransferError();
       
-      // Get the active tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      // For now, just show a test message since we're in test mode
+      alert('🔄 Session transfer would happen here in production mode');
       
-      if (!tab || !tab.id) {
-        alert('❌ No active tab found');
-        return;
-      }
-      
-      console.log('🔧 POPUP: Injecting into tab:', tab.url);
-      
-      // Inject the content script
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['content.js']
-      });
-      
-      alert('✅ Content script injected! Check the page console for logs.');
-    } catch (error: any) {
-      console.error('🔧 POPUP: Content script injection error:', error);
-      alert('❌ Failed to inject content script: ' + error.message);
+    } catch (error) {
+      console.error('❌ POPUP: Error during session transfer:', error);
+      this.showTransferError('Session transfer failed');
+    } finally {
+      this.transferSessionBtn.disabled = false;
+      this.transferSessionBtn.textContent = 'Transfer Session from SMC Manager';
     }
   }
 
-  private async checkAuthStatus(): Promise<void> {
-    try {
-      console.log('🔐 POPUP: Requesting auth status from background script...');
-      const response = await chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' });
-      console.log('🔐 POPUP: Auth status response:', response);
-      
-      if (response.success) {
-        this.authState = response.data;
-        console.log('🔐 POPUP: Updating UI with auth state:', this.authState);
-        this.updateUI();
-      } else {
-        console.error('❌ POPUP: Failed to get auth status:', response.error);
-        this.authState = { isAuthenticated: false };
-        this.updateUI();
-      }
-    } catch (error: any) {
-      console.error('❌ SMC: Failed to get auth status:', error);
-      this.authState = { isAuthenticated: false };
-      this.updateUI();
-    }
+  private showAuthenticatedState(email: string) {
+    this.statusElement.className = 'status connected';
+    this.statusTextElement.textContent = 'Connected to SMC Manager';
+    this.userEmailElement.textContent = email;
+    this.unauthenticatedDiv.classList.add('hidden');
+    this.authenticatedDiv.classList.remove('hidden');
   }
 
-  private updateUI(): void {
-    const statusElement = document.getElementById('status');
-    const statusTextElement = document.getElementById('statusText');
-    const authenticatedSection = document.getElementById('authenticated');
-    const unauthenticatedSection = document.getElementById('unauthenticated');
-    const userEmailElement = document.getElementById('userEmail');
+  private showUnauthenticatedState() {
+    this.statusElement.className = 'status disconnected';
+    this.statusTextElement.textContent = 'Not connected';
+    this.authenticatedDiv.classList.add('hidden');
+    this.unauthenticatedDiv.classList.remove('hidden');
+  }
 
-    if (!statusElement || !statusTextElement || !authenticatedSection || !unauthenticatedSection || !userEmailElement) {
-      console.error('❌ POPUP: Could not find UI elements');
-      return;
-    }
+  private setStatus(text: string, className: string) {
+    this.statusTextElement.textContent = text;
+    this.statusElement.className = `status ${className}`;
+  }
 
-    if (this.authState.isAuthenticated) {
-      console.log('🔐 POPUP: User is authenticated, updating UI...');
-      
-      // Update status
-      statusElement.className = 'status connected';
-      statusTextElement.textContent = 'Connected to SMC Manager';
-      
-      // Update user email
-      userEmailElement.textContent = this.authState.user?.email || 'Unknown user';
-      
-      // Show authenticated section
-      authenticatedSection.classList.remove('hidden');
-      unauthenticatedSection.classList.add('hidden');
-    } else {
-      console.log('🔐 POPUP: User is not authenticated, updating UI...');
-      
-      // Update status
-      statusElement.className = 'status disconnected';
-      statusTextElement.textContent = 'Not connected to SMC Manager';
-      
-      // Show unauthenticated section
-      unauthenticatedSection.classList.remove('hidden');
-      authenticatedSection.classList.add('hidden');
-    }
+  private showTransferError(message: string) {
+    this.transferErrorElement.textContent = message;
+    this.transferErrorElement.classList.remove('hidden');
+  }
+
+  private hideTransferError() {
+    this.transferErrorElement.classList.add('hidden');
+    this.transferErrorElement.textContent = '';
   }
 }
 
-// Initialize popup
-new SMCPopup();
+// Initialize popup when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('🚀 SMC: TEST DOM ready, initializing popup...');
+  new SMCPopup();
+});
+
+console.log('✅ SMC: TEST Popup script loaded');
