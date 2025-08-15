@@ -1,35 +1,22 @@
 {
   "name": "smc-extension",
-  "type": "module",
   "version": "1.0.0",
   "description": "Chrome extension for mining SREF codes from MidJourney",
   "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.39.0"
+    "build": "tsc && npm run copy-assets",
+    "copy-assets": "cp manifest.json dist/ && cp popup.html dist/ && cp -r icons dist/",
+    "dev": "tsc --watch"
   },
   "devDependencies": {
-    "@crxjs/vite-plugin": "^2.0.3",
-    "@types/chrome": "^0.1.1",
-    "@types/node": "^24.0.15",
-    "typescript": "~5.8.3",
-    "vite": "^7.0.5",
-    "vite-plugin-zip-pack": "^1.2.4"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/JoshMormann/smc-extension.git"
+    "@types/chrome": "^0.0.268",
+    "typescript": "^5.0.0"
   },
   "keywords": [
     "chrome-extension",
-    "midjourney",
+    "midjourney", 
     "sref",
-    "ai-art",
-    "style-reference"
+    "ai-art"
   ],
   "author": "Josh Mormann",
   "license": "MIT"
